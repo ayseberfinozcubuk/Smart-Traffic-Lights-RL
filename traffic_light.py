@@ -29,4 +29,4 @@ class TrafficLight:
         self.current_light = light
 
     def get_information(self):
-        return f"Traffic Light at ({self.location_x}, {self.location_y}) is {self.current_light.name}"
+        return self.current_light
