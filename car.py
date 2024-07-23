@@ -58,6 +58,12 @@ class Car:
             return self.y - distance < other_car.y < self.y and abs(self.x - other_car.x) < self.width
         return False
 
+    def get_car_in_proximity(self, all_cars, distance):
+        for other_car in all_cars:
+            if self != other_car and self.is_in_proximity(other_car, distance) and other_car.direction == self.direction:
+                return other_car
+        return None
+
     def stop_if_red_lights(self, traffic_lights):
         for traffic_light in traffic_lights:
             if traffic_light.current_light == Light.RED:
@@ -69,22 +75,27 @@ class Car:
         self.speed_y = self.original_speed_y
 
     def update(self, all_cars, traffic_lights, speed_reduction_distance):
-        is_any_car_in_proximity = False
-        for other_car in all_cars:
-            if self != other_car and self.is_in_proximity(other_car, speed_reduction_distance):
-                print('other car')
-                self.speed_x = min(self.speed_x, 1)
-                self.speed_y = min(self.speed_y, 1)
-                is_any_car_in_proximity = True
-                break  # Stop checking other cars once a proximity is found
-        if not is_any_car_in_proximity:
-            self.speed_x = self.original_speed_x
-            self.speed_y = self.original_speed_y
 
+        # Check for traffic lights
         self.stop_if_red_lights(traffic_lights)
 
+        car_in_proximity = self.get_car_in_proximity(all_cars, speed_reduction_distance)
+
+        # Adjust speeds based on proximity
+        if car_in_proximity:
+            if car_in_proximity.speed_x < self.speed_x:
+                self.speed_x = car_in_proximity.speed_x
+            if car_in_proximity.speed_y < self.speed_y:
+                self.speed_y = car_in_proximity.speed_y
+        else:
+            # No car in proximity, revert to original speed
+            self.stop_if_red_lights(traffic_lights)
+
+        # Check for collisions with other cars
         for other_car in all_cars:
             if self != other_car and self.check_collision(other_car):
                 print(f"Collision detected between cars at ({self.x}, {self.y}) and ({other_car.x}, {other_car.y})")
-        
+
+        # Move the car
         self.move()
+
