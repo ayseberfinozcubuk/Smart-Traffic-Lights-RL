@@ -14,6 +14,8 @@ class Car:
         self.speed_y = speed_y
         self.original_speed_x = speed_x
         self.original_speed_y = speed_y
+        self.crashed = False
+        self.reached_end = False
         
         # Determine the car's direction based on speed
         self.direction = (1 if speed_x > 0 else -1 if speed_x < 0 else 0,
@@ -73,7 +75,7 @@ class Car:
                     return  # Stop checking other lights if one is red and the car is affected
         self.speed_x = self.original_speed_x
         self.speed_y = self.original_speed_y
-
+    
     def update(self, all_cars, traffic_lights, speed_reduction_distance):
 
         # Check for traffic lights
@@ -94,6 +96,8 @@ class Car:
         # Check for collisions with other cars
         for other_car in all_cars:
             if self != other_car and self.check_collision(other_car):
+                self.crashed = True
+                other_car.crashed = True
                 print(f"Collision detected between cars at ({self.x}, {self.y}) and ({other_car.x}, {other_car.y})")
 
         # Move the car

@@ -3,11 +3,12 @@ import sys
 from car_spawner import CarSpawner
 from road import Road
 from traffic_light import TrafficLight, Light
+from environment import Environment
 
 pygame.init()
 
-width, height = 800, 600
-screen = pygame.display.set_mode((width, height))
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 gray = (60, 60, 60)
 light_gray = (211, 211, 211)
@@ -17,47 +18,42 @@ abc = (150, 80, 50)
 
 road_width = 50
 
-horizontal_road = Road(0, height // 2 - road_width, width, height // 2 + road_width, gray)
-horizontal_road_small = Road(width // 2 - 100, height // 2 - road_width, width // 2 - road_width, height // 2 + road_width, green)
-vertical_road = Road(width // 2 - road_width, 0, width // 2 + road_width, height, gray)
-'''
-top_left_grass = Road(0, 0, width // 2 - road_width, height // 2 - road_width, green)
-top_right_grass = Road(width // 2 + road_width, 0, width, height // 2 - road_width, green)
-bottom_left_grass = Road(0, height // 2 + road_width, width // 2 - road_width, height, green)
-bottom_right_grass = Road(width // 2 + road_width, height // 2 + road_width, width, height, green)
-'''
+horizontal_road = Road(0, HEIGHT // 2 - road_width, WIDTH, HEIGHT // 2 + road_width, gray, main_road=True)
+horizontal_road_small = Road(WIDTH// 2 - 100, HEIGHT // 2 - road_width, WIDTH// 2 - road_width, HEIGHT // 2 + road_width, green, main_road=False)
+vertical_road = Road(WIDTH// 2 - road_width, 0, WIDTH// 2 + road_width, HEIGHT, gray, main_road=True)
+vertical_road_small = Road(WIDTH// 2 - road_width, HEIGHT // 2 - 100, WIDTH// 2 + road_width, HEIGHT // 2 - road_width, green, main_road=False)
 
-car_spawner1 = CarSpawner((0, 0, height // 2), red, (50, 30), 2000, (1, 0), speed_reduction_distance=100)
-car_spawner2 = CarSpawner((width // 2, width // 2, 0), red, (50, 30), 2000, (0, 1), speed_reduction_distance=100)
+car_spawner1 = CarSpawner((0, 0, HEIGHT // 2), red, (50, 30), 2000, (1, 0))
+car_spawner2 = CarSpawner((WIDTH// 2, WIDTH// 2, 0), red, (50, 30), 2000, (0, 1))
 
-traffic_light = TrafficLight(width // 2 - 50, height // 2, horizontal_road_small)
+traffic_light_horizontal = TrafficLight(WIDTH// 2 - 50, HEIGHT // 2, horizontal_road_small)
+traffic_light_vertical = TrafficLight(WIDTH// 2, HEIGHT // 2 - 50, vertical_road_small)
 
-traffic_lights = [traffic_light]
+traffic_lights = [traffic_light_horizontal, traffic_light_vertical]
+roads = [horizontal_road, vertical_road, horizontal_road_small, vertical_road_small]
 all_cars = []
+
+env = Environment()
+state = env.reset(all_cars, traffic_lights, roads)
 
 def draw_scene():
     screen.fill(light_gray)
-    horizontal_road.draw(screen)
-    vertical_road.draw(screen)
-    horizontal_road_small.draw(screen)
-    '''
-    top_left_grass.draw(screen)
-    top_right_grass.draw(screen)
-    bottom_left_grass.draw(screen)
-    bottom_right_grass.draw(screen)
-    '''
-    traffic_light.draw(screen)
+    for road in roads:
+        road.draw(screen)
+        road.draw_end_area(screen, abc)
+    for traffic_light in traffic_lights:
+        traffic_light.draw(screen)
     for car in all_cars:
         car.draw(screen)
 
 clock = pygame.time.Clock()
 start_time = pygame.time.get_ticks()
 
-light_change_interval = 5000  # 5000 ms = 5 seconds
-last_light_change_time = pygame.time.get_ticks()
+light_change_interval = 5000
 
 while True:
     current_time = pygame.time.get_ticks()
+    all_cars = list(filter(lambda car: car.x < WIDTH and car.y < HEIGHT and car.crashed == False and car.reached_end == False, all_cars))
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -67,21 +63,11 @@ while True:
     car_spawner1.spawn_car(current_time, all_cars)
     car_spawner2.spawn_car(current_time, all_cars)
 
-    for car in all_cars:
-        car.update(all_cars, traffic_lights, car_spawner1.speed_reduction_distance)
+    next_state, reward, done = env.step([Light.RED, Light.GREEN], all_cars, traffic_lights, roads)
     
-    if current_time - last_light_change_time >= light_change_interval:
-        next_light = {
-            Light.RED: Light.GREEN,
-            Light.GREEN: Light.RED,
-        }.get(traffic_light.current_light, Light.RED)
-        traffic_light.change_light(next_light)
-        last_light_change_time = current_time
-    
-    num_cars_in_hor_area = horizontal_road.count_cars_in_area(all_cars)
-    num_cars_in_ver_area = vertical_road.count_cars_in_area(all_cars)
-    print(f"Number of cars in horizontal area: {num_cars_in_hor_area}")
-    print(f"Number of cars in vertical area: {num_cars_in_ver_area}")
+    print(reward)
+
+    state = next_state
 
     draw_scene()
 

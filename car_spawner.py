@@ -2,14 +2,13 @@ import random
 from car import Car
 
 class CarSpawner:
-    def __init__(self, spawn_area, car_color, car_size, spawn_interval, direction, speed_reduction_distance=100):
+    def __init__(self, spawn_area, car_color, car_size, spawn_interval, direction):
         self.spawn_area = spawn_area
         self.car_color = car_color
         self.car_size = car_size
         self.spawn_interval = spawn_interval
         self.direction = direction
         self.time_since_last_spawn = 0
-        self.speed_reduction_distance = speed_reduction_distance
 
     def spawn_car(self, current_time, all_cars):
         if current_time - self.time_since_last_spawn >= self.spawn_interval:
