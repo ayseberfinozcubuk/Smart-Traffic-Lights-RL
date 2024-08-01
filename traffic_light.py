@@ -5,7 +5,6 @@ from enum import Enum
 class Light(Enum):
     RED = 1
     GREEN = 2
-    BLUE = 3  # Optional for future states
 
 class TrafficLight:
     def __init__(self, location_x, location_y, road: Road) -> None:
@@ -21,7 +20,6 @@ class TrafficLight:
         light_color_map = {
             Light.RED: (255, 0, 0),
             Light.GREEN: (0, 255, 0),
-            Light.BLUE: (0, 0, 255)
         }
         
         pygame.draw.circle(surface, light_color_map[self.current_light], (self.location_x, self.location_y), circle_radius)

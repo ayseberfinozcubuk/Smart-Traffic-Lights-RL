@@ -7,7 +7,7 @@ from environment import Environment
 
 pygame.init()
 
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1200, 800
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 gray = (60, 60, 60)
@@ -35,12 +35,12 @@ all_cars = []
 
 env = Environment()
 state = env.reset(all_cars, traffic_lights, roads)
+hashable_state = env.get_hashable_state(state)
 
 def draw_scene():
     screen.fill(light_gray)
-    for road in roads:
+    for road in filter(lambda road: road.main_road, roads):
         road.draw(screen)
-        road.draw_end_area(screen, abc)
     for traffic_light in traffic_lights:
         traffic_light.draw(screen)
     for car in all_cars:
@@ -48,8 +48,6 @@ def draw_scene():
 
 clock = pygame.time.Clock()
 start_time = pygame.time.get_ticks()
-
-light_change_interval = 5000
 
 while True:
     current_time = pygame.time.get_ticks()
@@ -63,11 +61,15 @@ while True:
     car_spawner1.spawn_car(current_time, all_cars)
     car_spawner2.spawn_car(current_time, all_cars)
 
-    next_state, reward, done = env.step([Light.RED, Light.GREEN], all_cars, traffic_lights, roads)
+    # action = agent.get_action(hashable_state)
+    action = [Light.GREEN, Light.RED]
     
-    print(reward)
+    next_state, reward, done = env.step(action, all_cars, traffic_lights, roads)
+    hashable_next_state = env.get_hashable_state(next_state)
+    
+    # agent.update(hashable_state, action, reward, hashable_next_state, done)
 
-    state = next_state
+    hashable_state = hashable_next_state
 
     draw_scene()
 

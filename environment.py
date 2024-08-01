@@ -33,9 +33,6 @@ class Environment:
         for car in all_cars:
             car.update(all_cars, traffic_lights, self.speed_reduction_distance)
 
-        for traffic_light in traffic_lights:
-            traffic_light.update_light(pygame.time.get_ticks(), self.light_change_interval)
-
         new_state = self.get_state(all_cars, traffic_lights, roads)
         reward = self.calculate_reward(new_state)
         done = self.is_done(new_state)
@@ -50,8 +47,8 @@ class Environment:
 
     def calculate_reward(self, state):
         reward = 0
-        reward += sum(state['cars_at_end_areas'])
-        # reward -= sum(state['cars_in_stopping_areas'])
+        reward += sum(state['cars_at_end_areas']) 
+        reward -= sum(state['cars_in_stopping_areas']) 
         for car in state['cars']:
             if car[4]:
                 reward -= 1
@@ -107,3 +104,10 @@ class Environment:
 
     def clear_data(self):
         self.data = []
+        
+    def get_hashable_state(self, state):
+        cars_state = tuple(tuple(car) for car in state['cars'])
+        lights_state = tuple(tuple(light) for light in state['traffic_lights'])
+        cars_in_stopping_areas = tuple(state['cars_in_stopping_areas'])
+        cars_at_end_areas = tuple(state['cars_at_end_areas'])
+        return (cars_state, lights_state, cars_in_stopping_areas, cars_at_end_areas)
