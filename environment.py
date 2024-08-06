@@ -46,12 +46,12 @@ class Environment:
             light.change_light(action[i])
 
     def calculate_reward(self, state):
-        reward = 0
-        reward += sum(state['cars_at_end_areas']) 
-        reward -= sum(state['cars_in_stopping_areas']) 
+        reward = -1
+        reward += sum(state['cars_at_end_areas']) * 1
+        reward -= sum(state['cars_in_stopping_areas']) * 1
         for car in state['cars']:
             if car[4]:
-                reward -= 1
+                reward -= 10
         return reward
 
     def is_done(self, state):
@@ -110,4 +110,4 @@ class Environment:
         lights_state = tuple(tuple(light) for light in state['traffic_lights'])
         cars_in_stopping_areas = tuple(state['cars_in_stopping_areas'])
         cars_at_end_areas = tuple(state['cars_at_end_areas'])
-        return (cars_state, lights_state, cars_in_stopping_areas, cars_at_end_areas)
+        return (cars_in_stopping_areas, lights_state)

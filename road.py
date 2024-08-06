@@ -52,15 +52,20 @@ class Road:
     def is_inside(self, x, y):
         return (self.start_x <= x <= self.end_x) and (self.start_y <= y <= self.end_y)
     
-    def count_cars(self, all_cars):
+    def count_cars(self, all_cars, onlyStop=True):
         count = 0
         for car in all_cars:
             car_center_x = car.x + car.width / 2
             car_center_y = car.y + car.height / 2
+
             
             if (self.stopping_area[0] <= car_center_x <= self.stopping_area[2]) and (self.stopping_area[1] <= car_center_y <= self.stopping_area[3]):
-                count += 1
+                if (onlyStop and car.speed_x == 0 and car.speed_y == 0):
+                    count += 1
+                elif not onlyStop:
+                    count += 1 
         return count
+    
     
     def count_cars_at_end(self, all_cars):
         count = 0

@@ -1,8 +1,14 @@
 import pygame
 from traffic_light import Light
+import datetime
+import csv
 
 class Car:
-    MAX_SPEED = 2
+    MAX_SPEED = 50
+    MIN_SPEED = 30
+    collision_counter = 0
+
+    # Initialize collision counter
 
     def __init__(self, x, y, width, height, color, speed_x, speed_y):
         self.x = x
@@ -16,6 +22,7 @@ class Car:
         self.original_speed_y = speed_y
         self.crashed = False
         self.reached_end = False
+
         
         # Determine the car's direction based on speed
         self.direction = (1 if speed_x > 0 else -1 if speed_x < 0 else 0,
@@ -36,6 +43,11 @@ class Car:
         rect = rotated_surface.get_rect(center=(self.x + self.width / 2, self.y + self.height / 2))
         
         surface.blit(rotated_surface, rect.topleft)
+
+        # Render collision counter
+        font = pygame.font.Font(None, 36)
+        text = font.render(f'Collisions: {Car.collision_counter}', True, (255, 255, 255))
+        surface.blit(text, (10, 10))
 
     def move(self):
         self.x += self.speed_x
@@ -98,8 +110,27 @@ class Car:
             if self != other_car and self.check_collision(other_car):
                 self.crashed = True
                 other_car.crashed = True
+                Car.collision_counter += 1
+                Car.save_collision(datetime.datetime.now(), self.x, self.y, other_car.x, other_car.y)
+                print("a")
                 print(f"Collision detected between cars at ({self.x}, {self.y}) and ({other_car.x}, {other_car.y})")
 
         # Move the car
         self.move()
 
+    @staticmethod
+    def save_collision(timestamp, car1_x, car1_y, car2_x, car2_y):
+        with open('collisions.csv', 'a', newline='') as csvfile:
+            fieldnames = ['timestamp', 'car1_x', 'car1_y', 'car2_x', 'car2_y']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            if csvfile.tell() == 0:  # Write header if file is empty
+                writer.writeheader()
+
+            writer.writerow({
+                'timestamp': timestamp,
+                'car1_x': car1_x,
+                'car1_y': car1_y,
+                'car2_x': car2_x,
+                'car2_y': car2_y
+            })

@@ -14,8 +14,9 @@ class CarSpawner:
         if current_time - self.time_since_last_spawn >= self.spawn_interval:
             x = random.randint(self.spawn_area[0], self.spawn_area[1])
             y = self.spawn_area[2]
-            speed_x = random.randint(1, Car.MAX_SPEED) * self.direction[0]
-            speed_y = random.randint(1, Car.MAX_SPEED) * self.direction[1]
+            speed_x = random.randint(Car.MIN_SPEED, Car.MAX_SPEED) * self.direction[0]
+            speed_y = random.randint(Car.MIN_SPEED, Car.MAX_SPEED) * self.direction[1]
             car = Car(x, y, *self.car_size, self.car_color, speed_x, speed_y)
             all_cars.append(car)
             self.time_since_last_spawn = current_time
+            self.spawn_interval = random.random() * 300 + 100
