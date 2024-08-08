@@ -16,7 +16,11 @@ class CarSpawner:
             y = self.spawn_area[2]
             speed_x = random.randint(Car.MIN_SPEED, Car.MAX_SPEED) * self.direction[0]
             speed_y = random.randint(Car.MIN_SPEED, Car.MAX_SPEED) * self.direction[1]
-            car = Car(x, y, *self.car_size, self.car_color, speed_x, speed_y)
-            all_cars.append(car)
-            self.time_since_last_spawn = current_time
-            self.spawn_interval = random.random() * 300 + 100
+
+            # Check for collision with existing cars
+            collision = any(car.check_spawn_point_collision(x, y, self.car_size[0], self.car_size[1]) for car in all_cars)
+            if not collision:
+                car = Car(x, y, *self.car_size, self.car_color, speed_x, speed_y)
+                all_cars.append(car)
+                self.time_since_last_spawn = current_time
+                self.spawn_interval = random.random() * 300 + 100

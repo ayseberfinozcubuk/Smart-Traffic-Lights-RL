@@ -22,6 +22,7 @@ green = (100, 200, 70)
 abc = (150, 80, 50)
 
 road_width = 50
+spawn_interval = 100
 
 horizontal_road = Road(0, HEIGHT // 2 - road_width, WIDTH, HEIGHT // 2 + road_width, gray, main_road=True)
 horizontal_road_small = Road(WIDTH// 2 - 100, HEIGHT // 2 - road_width, WIDTH// 2 - road_width, HEIGHT // 2 + road_width, green, main_road=False)
@@ -32,8 +33,8 @@ horizontal_road_small_2 = Road(WIDTH// 3 - 100, HEIGHT // 3 - road_width, WIDTH/
 vertical_road = Road(WIDTH// 2 - road_width, 0, WIDTH// 2 + road_width, HEIGHT, gray, main_road=True)
 vertical_road_small = Road(WIDTH// 2 - road_width, HEIGHT // 2 - 100, WIDTH// 2 + road_width, HEIGHT // 2 - road_width, green, main_road=False)
 
-car_spawner1 = CarSpawner((0, 0, HEIGHT // 2), red, (50, 30), 200, (1, 0))
-car_spawner2 = CarSpawner((WIDTH// 2, WIDTH// 2, 0), red, (50, 30), 200, (0, 1))
+car_spawner1 = CarSpawner((0, 0, HEIGHT // 2), red, (50, 30), spawn_interval, (1, 0))
+car_spawner2 = CarSpawner((WIDTH// 2, WIDTH// 2, 0), red, (50, 30), spawn_interval, (0, 1))
 # car_spawner3 = CarSpawner((0, 0, HEIGHT // 3), red, (50, 30), 200, (1, 0))
 
 traffic_light_horizontal = TrafficLight(WIDTH// 2 - 50, HEIGHT // 2, horizontal_road_small)
@@ -81,21 +82,18 @@ while True:
     
     car_spawner1.spawn_car(current_time, all_cars)
     car_spawner2.spawn_car(current_time, all_cars)
-    # car_spawner3.spawn_car(current_time, all_cars)
 
     # Determine if it's time to choose a new action
     if current_time - last_action_time >= action_interval:
-        # Choose action based on the current state
         action_index = agent.choose_action(hashable_state)
         action = actions[action_index]
         last_action_time = current_time
     else:
-        action = actions[action_index]  # Use the previous action if within the interval
+        action = actions[action_index]
 
     next_state, reward, done = env.step(action, all_cars, traffic_lights, roads)
     hashable_next_state = env.get_hashable_state(next_state)
-    
-    # Update the agent's knowledge
+
     agent.update(hashable_state, action_index, reward, hashable_next_state)
     hashable_state = hashable_next_state
 

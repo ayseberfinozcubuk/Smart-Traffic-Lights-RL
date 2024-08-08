@@ -46,15 +46,17 @@ class Environment:
             light.change_light(action[i])
 
     def calculate_reward(self, state):
-        reward = -1
-        reward += sum(state['cars_at_end_areas']) * 1
-        reward -= sum(state['cars_in_stopping_areas']) * 1
+        reward = 0
+        reward += sum(state['cars_at_end_areas']) * 10
+        reward -= sum(state['cars_in_stopping_areas']) * 0.05  # Increase penalty for stopping areas
         for car in state['cars']:
-            if car[4]:
-                reward -= 10
+            if car[4]:  # If crashed
+                reward -= 100  # Increase penalty for crashes
         return reward
 
+    # Ensure `is_done` method is consistent with episode termination logic
     def is_done(self, state):
+        # Here you can define conditions to end an episode if needed
         for car in state['cars']:
             if car[4]:
                 return True

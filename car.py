@@ -4,8 +4,8 @@ import datetime
 import csv
 
 class Car:
-    MAX_SPEED = 50
-    MIN_SPEED = 30
+    MAX_SPEED = 25
+    MIN_SPEED = 25
     collision_counter = 0
 
     # Initialize collision counter
@@ -22,6 +22,7 @@ class Car:
         self.original_speed_y = speed_y
         self.crashed = False
         self.reached_end = False
+        self.waiting_duration = 0
 
         
         # Determine the car's direction based on speed
@@ -59,6 +60,13 @@ class Car:
                 self.x + self.width > other_car.x and
                 self.y < other_car.y + other_car.height and
                 self.y + self.height > other_car.y)
+    
+    def check_spawn_point_collision(self, x, y, width, height):
+        # Simple bounding box collision detection
+        return (x < self.x + self.width and
+                x + width > self.x and
+                y < self.y + self.height and
+                y + height > self.y)
 
     def is_in_proximity(self, other_car, distance):
         # Check if another car is within a certain distance ahead of this car
@@ -84,9 +92,12 @@ class Car:
                 if traffic_light.road.is_inside(self.x, self.y):
                     self.speed_x = 0
                     self.speed_y = 0
+                    self.waiting_duration += 1
                     return  # Stop checking other lights if one is red and the car is affected
         self.speed_x = self.original_speed_x
         self.speed_y = self.original_speed_y
+        self.waiting_duration = 0
+
     
     def update(self, all_cars, traffic_lights, speed_reduction_distance):
 
@@ -101,6 +112,8 @@ class Car:
                 self.speed_x = car_in_proximity.speed_x
             if car_in_proximity.speed_y < self.speed_y:
                 self.speed_y = car_in_proximity.speed_y
+            if (self.speed_x == 0) and (self.speed_y == 0):
+                    self.waiting_duration += 1
         else:
             # No car in proximity, revert to original speed
             self.stop_if_red_lights(traffic_lights)
@@ -112,7 +125,6 @@ class Car:
                 other_car.crashed = True
                 Car.collision_counter += 1
                 Car.save_collision(datetime.datetime.now(), self.x, self.y, other_car.x, other_car.y)
-                print("a")
                 print(f"Collision detected between cars at ({self.x}, {self.y}) and ({other_car.x}, {other_car.y})")
 
         # Move the car

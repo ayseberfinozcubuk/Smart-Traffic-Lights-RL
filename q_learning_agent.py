@@ -22,7 +22,7 @@ class QLearningAgent:
             self.q_table[state] = np.zeros(len(self.actions))
 
         if random.uniform(0, 1) < self.epsilon:
-            return random.choice(self.actions)  # Exploration
+            return random.choice(range(len(self.actions)))  # Exploration
         else:
             return np.argmax(self.q_table[state])  # Exploitation
 
