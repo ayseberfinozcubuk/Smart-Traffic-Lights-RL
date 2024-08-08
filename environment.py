@@ -3,6 +3,9 @@ import numpy as np
 import csv
 
 class Environment:
+
+    dif_penalty_for_wait = True
+
     def __init__(self):
         self.data = []
         self.state = None
@@ -65,7 +68,7 @@ class Environment:
     def count_cars_in_stopping_areas(self, all_cars, roads):
         counts = []
         for road in filter(lambda r: r.main_road, roads):
-            count = road.count_cars(all_cars)
+            count = road.count_cars(all_cars, calculate_waiting_durations=Environment.dif_penalty_for_wait)
             counts.append(count)
         return counts
 

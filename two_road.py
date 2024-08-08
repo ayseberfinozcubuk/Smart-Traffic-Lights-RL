@@ -8,7 +8,9 @@ from q_learning_agent import QLearningAgent
 import os
 
 if os.path.exists("collisions.csv"):
-  os.remove("collisions.csv")
+    os.remove("collisions.csv")
+if os.path.exists("max_wait_durations.csv"):
+    os.remove("max_wait_durations.csv")
 
 pygame.init()
 

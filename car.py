@@ -7,6 +7,7 @@ class Car:
     MAX_SPEED = 25
     MIN_SPEED = 25
     collision_counter = 0
+    max_wait_duration = -1
 
     # Initialize collision counter
 
@@ -47,8 +48,12 @@ class Car:
 
         # Render collision counter
         font = pygame.font.Font(None, 36)
-        text = font.render(f'Collisions: {Car.collision_counter}', True, (255, 255, 255))
-        surface.blit(text, (10, 10))
+        text_collisions = font.render(f'Collisions: {Car.collision_counter}', True, (255, 255, 255))
+        surface.blit(text_collisions, (10, 10))
+
+        # Render max wait duration
+        # text_max_wait = font.render(f'Max Wait Duration: {Car.max_wait_duration}', True, (255, 255, 255))
+        # surface.blit(text_max_wait, (10, 50))
 
     def move(self):
         self.x += self.speed_x
@@ -126,6 +131,7 @@ class Car:
                 Car.collision_counter += 1
                 Car.save_collision(datetime.datetime.now(), self.x, self.y, other_car.x, other_car.y)
                 print(f"Collision detected between cars at ({self.x}, {self.y}) and ({other_car.x}, {other_car.y})")
+        Car.save_max_wait_duration(datetime.datetime.now(), all_cars)
 
         # Move the car
         self.move()
@@ -146,3 +152,25 @@ class Car:
                 'car2_x': car2_x,
                 'car2_y': car2_y
             })
+
+    @staticmethod
+    def save_max_wait_duration(timestamp, all_cars):
+        max_duration = 0
+        for car in all_cars:
+            if (max_duration < car.waiting_duration):
+                max_duration = car.waiting_duration
+
+        if (Car.max_wait_duration != max_duration):
+            Car.max_wait_duration = max_duration
+
+            with open('max_wait_durations.csv', 'a', newline='') as csvfile:
+                fieldnames = ['timestamp', 'max_waiting_duration']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                if csvfile.tell() == 0:  # Write header if file is empty
+                    writer.writeheader()
+
+                writer.writerow({
+                    'timestamp': timestamp,
+                    'max_waiting_duration': max_duration
+                })
