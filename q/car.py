@@ -138,7 +138,7 @@ class Car:
 
     @staticmethod
     def save_collision(timestamp, car1_x, car1_y, car2_x, car2_y):
-        with open('collisions.csv', 'a', newline='') as csvfile:
+        with open('q/collisions.csv', 'a', newline='') as csvfile:
             fieldnames = ['timestamp', 'car1_x', 'car1_y', 'car2_x', 'car2_y']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
@@ -163,7 +163,7 @@ class Car:
         if (Car.max_wait_duration != max_duration):
             Car.max_wait_duration = max_duration
 
-            with open('max_wait_durations.csv', 'a', newline='') as csvfile:
+            with open('q/max_wait_durations.csv', 'a', newline='') as csvfile:
                 fieldnames = ['timestamp', 'max_waiting_duration']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 

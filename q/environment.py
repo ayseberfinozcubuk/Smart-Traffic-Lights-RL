@@ -1,0 +1,137 @@
+import pygame
+import numpy as np
+import csv
+import datetime
+
+class Environment:
+
+    dif_penalty_for_wait = True
+    episode_reward = 0
+    episode = 0
+
+    def __init__(self):
+        self.data = []
+        self.state = None
+        self.speed_reduction_distance = 100
+        self.light_change_interval = 5000
+
+    def reset(self, all_cars, traffic_lights, roads):
+        self.data = []
+        self.state = self.get_state(all_cars, traffic_lights, roads)
+        return self.state
+
+    def get_state(self, all_cars, traffic_lights, roads):
+        cars_state = [(car.x, car.y, car.speed_x, car.speed_y, car.crashed) for car in all_cars]
+        lights_state = [(light.location_x, light.location_y, light.current_light) for light in traffic_lights]
+        cars_in_stopping_areas = self.count_cars_in_stopping_areas(all_cars, roads)
+        cars_at_end_areas = self.count_cars_at_end_areas(all_cars, roads)
+
+        return {
+            'cars': cars_state, 
+            'traffic_lights': lights_state, 
+            'cars_in_stopping_areas': cars_in_stopping_areas,
+            'cars_at_end_areas': cars_at_end_areas
+        }
+
+    def step(self, action, all_cars, traffic_lights, roads):
+        self.apply_action(action, traffic_lights)
+
+        for car in all_cars:
+            car.update(all_cars, traffic_lights, self.speed_reduction_distance)
+
+        new_state = self.get_state(all_cars, traffic_lights, roads)
+        reward = self.calculate_reward(new_state)
+        done = self.is_done(new_state)
+
+        self.record_data(new_state)
+
+        return new_state, reward, done
+
+    def apply_action(self, action, traffic_lights):
+        for i, light in enumerate(traffic_lights):
+            light.change_light(action[i])
+
+    def calculate_reward(self, state):
+        reward = 0
+        reward += sum(state['cars_at_end_areas']) * 10
+        reward -= sum(state['cars_in_stopping_areas']) * 0.05  # Increase penalty for stopping areas
+        for car in state['cars']:
+            if car[4]:  # If crashed
+                reward -= 100  # Increase penalty for crashes
+        Environment.episode += 1
+        Environment.episode_reward += reward
+        if (Environment.episode == 50):
+            with open('q/rewards.csv', 'a', newline='') as csvfile:
+                fieldnames = ['timestamp', 'reward']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                if csvfile.tell() == 0:  # Write header if file is empty
+                    writer.writeheader()
+
+                writer.writerow({
+                    'timestamp': datetime.datetime.now(),
+                    'reward': Environment.episode_reward
+                })
+            Environment.episode = 0
+            Environment.episode_reward = 0
+        return reward
+
+    # Ensure `is_done` method is consistent with episode termination logic
+    def is_done(self, state):
+        # Here you can define conditions to end an episode if needed
+        for car in state['cars']:
+            if car[4]:
+                return True
+        return False
+
+    def count_cars_in_stopping_areas(self, all_cars, roads):
+        counts = []
+        for road in filter(lambda r: r.main_road, roads):
+            count = road.count_cars(all_cars, calculate_waiting_durations=Environment.dif_penalty_for_wait)
+            counts.append(count)
+        return counts
+
+    def count_cars_at_end_areas(self, all_cars, roads):
+        counts = []
+        for road in filter(lambda r: r.main_road, roads):
+            count = road.count_cars_at_end(all_cars)
+            counts.append(count)
+        return counts
+
+    def record_data(self, state):
+        self.data.append(state)
+        self.save_data_to_csv('data.csv')
+
+    def save_data_to_csv(self, filename):
+        with open(filename, 'w', newline='') as csvfile:
+            fieldnames = [
+                'traffic_light_index', 
+                'traffic_light_x', 
+                'traffic_light_y', 
+                'traffic_light_state',
+                'cars_in_stopping_areas',
+                'cars_at_end_areas'
+            ]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+            writer.writeheader()
+            for state in self.data:
+                for i, light in enumerate(state['traffic_lights']):
+                    writer.writerow({
+                        'traffic_light_index': i,
+                        'traffic_light_x': light[0],
+                        'traffic_light_y': light[1],
+                        'traffic_light_state': light[2],
+                        'cars_in_stopping_areas': state['cars_in_stopping_areas'][i],
+                        'cars_at_end_areas': state['cars_at_end_areas'][i]
+                    })
+
+    def clear_data(self):
+        self.data = []
+        
+    def get_hashable_state(self, state):
+        cars_state = tuple(tuple(car) for car in state['cars'])
+        lights_state = tuple(tuple(light) for light in state['traffic_lights'])
+        cars_in_stopping_areas = tuple(state['cars_in_stopping_areas'])
+        cars_at_end_areas = tuple(state['cars_at_end_areas'])
+        return (cars_in_stopping_areas, lights_state)

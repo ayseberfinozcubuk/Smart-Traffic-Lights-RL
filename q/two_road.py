@@ -7,10 +7,12 @@ from environment import Environment
 from q_learning_agent import QLearningAgent
 import os
 
-if os.path.exists("collisions.csv"):
-    os.remove("collisions.csv")
-if os.path.exists("max_wait_durations.csv"):
-    os.remove("max_wait_durations.csv")
+if os.path.exists("q/collisions.csv"):
+    os.remove("q/collisions.csv")
+if os.path.exists("q/max_wait_durations.csv"):
+    os.remove("q/max_wait_durations.csv")
+if os.path.exists("q/rewards.csv"):
+    os.remove("q/rewards.csv")
 
 pygame.init()
 

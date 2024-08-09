@@ -1,3 +1,4 @@
+import datetime
 import pygame
 import numpy as np
 import csv
@@ -5,6 +6,8 @@ import csv
 class Environment:
 
     dif_penalty_for_wait = True
+    episode = 0
+    episode_reward = 0
 
     def __init__(self):
         self.data = []
@@ -19,7 +22,7 @@ class Environment:
 
     def get_state(self, all_cars, traffic_lights, roads):
         cars_state = [(car.x, car.y, car.speed_x, car.speed_y, car.crashed) for car in all_cars]
-        lights_state = [(light.location_x, light.location_y, light.current_light) for light in traffic_lights]
+        lights_state = [(light.location_x, light.location_y, light.current_light.value) for light in traffic_lights]
         cars_in_stopping_areas = self.count_cars_in_stopping_areas(all_cars, roads)
         cars_at_end_areas = self.count_cars_at_end_areas(all_cars, roads)
 
@@ -54,7 +57,23 @@ class Environment:
         reward -= sum(state['cars_in_stopping_areas']) * 0.05  # Increase penalty for stopping areas
         for car in state['cars']:
             if car[4]:  # If crashed
-                reward -= 100  # Increase penalty for crashes
+                reward -= 1000  # Increase penalty for crashes
+        Environment.episode += 1
+        Environment.episode_reward += reward
+        if (Environment.episode == 50):
+            with open('dqn/rewards.csv', 'a', newline='') as csvfile:
+                fieldnames = ['timestamp', 'reward']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                if csvfile.tell() == 0:  # Write header if file is empty
+                    writer.writeheader()
+
+                writer.writerow({
+                    'timestamp': datetime.datetime.now(),
+                    'reward': Environment.episode_reward
+                })
+            Environment.episode = 0
+            Environment.episode_reward = 0
         return reward
 
     # Ensure `is_done` method is consistent with episode termination logic
@@ -109,10 +128,11 @@ class Environment:
 
     def clear_data(self):
         self.data = []
-        
+      
     def get_hashable_state(self, state):
-        cars_state = tuple(tuple(car) for car in state['cars'])
-        lights_state = tuple(tuple(light) for light in state['traffic_lights'])
-        cars_in_stopping_areas = tuple(state['cars_in_stopping_areas'])
-        cars_at_end_areas = tuple(state['cars_at_end_areas'])
-        return (cars_in_stopping_areas, lights_state)
+        #cars_state = [item for car in state['cars'] for item in car]
+        lights_state = [item for light in state['traffic_lights'] for item in light]
+        cars_in_stopping_areas = state['cars_in_stopping_areas']
+        #cars_at_end_areas = state['cars_at_end_areas']
+        return lights_state + cars_in_stopping_areas 
+
