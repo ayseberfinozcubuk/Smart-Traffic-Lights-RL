@@ -1,3 +1,14 @@
-__pycache__
-data.csv
-plots
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Mac
+.DS_Store
+
+# Logs and Data
+*.csv
+plots/
+models/
+*.log
