@@ -1,9 +1,9 @@
 import pygame
 import sys
-from car_spawner import CarSpawner
-from road import Road
-from traffic_light import TrafficLight, Light
-from environment import Environment
+from common.car_spawner import CarSpawner
+from common.road import Road
+from common.traffic_light import TrafficLight, Light
+from common.environment import Environment
 from q_learning_agent import QLearningAgent
 import os
 
@@ -49,7 +49,7 @@ traffic_lights = [traffic_light_horizontal, traffic_light_vertical]
 roads = [horizontal_road, vertical_road, horizontal_road_small, vertical_road_small, horizontal_road_2, horizontal_road_small_2]
 all_cars = []
 
-env = Environment()
+env = Environment(log_dir="q", crash_penalty=10000, stopping_penalty=0.05, state_encoding='tuple')
 state = env.reset(all_cars, traffic_lights, roads)
 hashable_state = env.get_hashable_state(state)
 

@@ -1,5 +1,5 @@
 import random
-from car import Car
+from common.car import Car
 
 class CarSpawner:
     def __init__(self, spawn_area, car_color, car_size, spawn_interval, direction):
@@ -23,4 +23,4 @@ class CarSpawner:
                 car = Car(x, y, *self.car_size, self.car_color, speed_x, speed_y)
                 all_cars.append(car)
                 self.time_since_last_spawn = current_time
-                self.spawn_interval = random.random() * 300 + 100
+                self.spawn_interval = random.random() * 500 + 200

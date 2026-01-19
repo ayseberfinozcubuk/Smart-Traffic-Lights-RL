@@ -1,9 +1,9 @@
 import pygame
 import sys
-from car_spawner import CarSpawner
-from road import Road
-from traffic_light import TrafficLight, Light
-from environment import Environment
+from common.car_spawner import CarSpawner
+from common.road import Road
+from common.traffic_light import TrafficLight, Light
+from common.environment import Environment
 from sarsa_agent import SARSAAgent
 import os
 
@@ -43,12 +43,9 @@ traffic_lights = [traffic_light_horizontal, traffic_light_vertical]
 roads = [horizontal_road, vertical_road, horizontal_road_small, vertical_road_small]
 all_cars = []
 
-env = Environment()
+env = Environment(log_dir="sarsa", crash_penalty=10000, stopping_penalty=0.1, state_encoding='tuple')
 state = env.reset(all_cars, traffic_lights, roads)
 hashable_state = env.get_hashable_state(state)
-
-# SARSA ajanını başlat
-agent = SARSAAgent(actions=range(len(traffic_lights)))
 
 # Actions listesi, her trafik ışığı için olası durumları belirler.
 actions = [
@@ -57,6 +54,9 @@ actions = [
     (Light.GREEN, Light.GREEN), # Her iki ışık da yeşil
     (Light.RED, Light.RED)      # Her iki ışık da kırmızı
 ]
+
+# SARSA ajanını başlat
+agent = SARSAAgent(actions=range(len(actions)))
 
 # İlk durumu seçin ve ilk aksiyonu belirleyin
 action_index = agent.choose_action(hashable_state)

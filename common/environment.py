@@ -2,18 +2,27 @@ import datetime
 import pygame
 import numpy as np
 import csv
+import os
 
 class Environment:
 
     dif_penalty_for_wait = True
     episode = 0
     episode_reward = 0
+    
+    # Class-level episode counter might need to be instance level if we run multiple envs, 
+    # but for now keeping it as is to match original behavior, just aware it's shared.
 
-    def __init__(self):
+    def __init__(self, log_dir='.', crash_penalty=1000, stopping_penalty=0.05, state_encoding='tuple', min_switch_time=5000):
         self.data = []
         self.state = None
         self.speed_reduction_distance = 100
         self.light_change_interval = 5000
+        self.min_switch_time = min_switch_time
+        self.log_dir = log_dir
+        self.crash_penalty = crash_penalty
+        self.stopping_penalty = stopping_penalty
+        self.state_encoding = state_encoding
 
     def reset(self, all_cars, traffic_lights, roads):
         self.data = []
@@ -22,7 +31,8 @@ class Environment:
 
     def get_state(self, all_cars, traffic_lights, roads):
         cars_state = [(car.x, car.y, car.speed_x, car.speed_y, car.crashed) for car in all_cars]
-        lights_state = [(light.location_x, light.location_y, light.current_light.value) for light in traffic_lights]
+        lights_state = [(light.location_x, light.location_y, (light.current_light.value if hasattr(light.current_light, 'value') else light.current_light)) for light in traffic_lights]
+        
         cars_in_stopping_areas = self.count_cars_in_stopping_areas(all_cars, roads)
         cars_at_end_areas = self.count_cars_at_end_areas(all_cars, roads)
 
@@ -37,7 +47,7 @@ class Environment:
         self.apply_action(action, traffic_lights)
 
         for car in all_cars:
-            car.update(all_cars, traffic_lights, self.speed_reduction_distance)
+            car.update(all_cars, traffic_lights, self.speed_reduction_distance, self.log_dir)
 
         new_state = self.get_state(all_cars, traffic_lights, roads)
         reward = self.calculate_reward(new_state)
@@ -48,20 +58,26 @@ class Environment:
         return new_state, reward, done
 
     def apply_action(self, action, traffic_lights):
+        current_time = pygame.time.get_ticks()
         for i, light in enumerate(traffic_lights):
-            light.change_light(action[i])
+            # Only change if the new state is different AND minimum time has passed
+            if light.current_light != action[i]:
+                if current_time - light.last_light_change_time >= self.min_switch_time:
+                    light.change_light(action[i])
+                    light.last_light_change_time = current_time
 
     def calculate_reward(self, state):
         reward = 0
         reward += sum(state['cars_at_end_areas']) * 10
-        reward -= sum(state['cars_in_stopping_areas']) * 0.05  # Increase penalty for stopping areas
+        reward -= sum(state['cars_in_stopping_areas']) * self.stopping_penalty
         for car in state['cars']:
             if car[4]:  # If crashed
-                reward -= 1000  # Increase penalty for crashes
+                reward -= self.crash_penalty
+        
         Environment.episode += 1
         Environment.episode_reward += reward
         if (Environment.episode == 50):
-            with open('dqn/rewards.csv', 'a', newline='') as csvfile:
+            with open(os.path.join(self.log_dir, 'rewards.csv'), 'a', newline='') as csvfile:
                 fieldnames = ['timestamp', 'reward']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 
@@ -76,9 +92,7 @@ class Environment:
             Environment.episode_reward = 0
         return reward
 
-    # Ensure `is_done` method is consistent with episode termination logic
     def is_done(self, state):
-        # Here you can define conditions to end an episode if needed
         for car in state['cars']:
             if car[4]:
                 return True
@@ -100,7 +114,7 @@ class Environment:
 
     def record_data(self, state):
         self.data.append(state)
-        self.save_data_to_csv('data.csv')
+        self.save_data_to_csv(os.path.join(self.log_dir, 'data.csv'))
 
     def save_data_to_csv(self, filename):
         with open(filename, 'w', newline='') as csvfile:
@@ -130,9 +144,21 @@ class Environment:
         self.data = []
       
     def get_hashable_state(self, state):
-        #cars_state = [item for car in state['cars'] for item in car]
-        lights_state = [item for light in state['traffic_lights'] for item in light]
         cars_in_stopping_areas = state['cars_in_stopping_areas']
-        #cars_at_end_areas = state['cars_at_end_areas']
-        return lights_state + cars_in_stopping_areas 
-
+        
+        if self.state_encoding == 'dqn':
+            # DQN Flattened List
+            # lights_state = [item for light in state['traffic_lights'] for item in light]
+            # Note: The original DQN code flattened the tuple representation of light state
+            # state['traffic_lights'] contains tuples (x, y, state)
+            lights_state = [item for light in state['traffic_lights'] for item in light]
+            return lights_state + cars_in_stopping_areas
+        else:
+            # Hashable Tuple (Q-learning, SARSA)
+            # Default to tuple of tuples
+            # state['traffic_lights'] contains tuples already, but we need to ensure deep immutability for dict keys
+            lights_state = tuple(tuple(light) for light in state['traffic_lights'])
+            cars_in_stopping_areas = tuple(cars_in_stopping_areas)
+            
+            # Note: Q/SARSA original code returned (cars_in_stopping_areas, lights_state)
+            return (cars_in_stopping_areas, lights_state)

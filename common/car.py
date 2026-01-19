@@ -1,7 +1,8 @@
 import pygame
-from traffic_light import Light
 import datetime
 import csv
+import os
+from common.traffic_light import Light
 
 class Car:
     MAX_SPEED = 25
@@ -9,13 +10,13 @@ class Car:
     collision_counter = 0
     max_wait_duration = -1
 
-    # Initialize collision counter
-
     def __init__(self, x, y, width, height, color, speed_x, speed_y):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        self.original_width = width  # Store for drawing
+        self.original_height = height # Store for drawing
         self.color = color
         self.speed_x = speed_x
         self.speed_y = speed_y
@@ -24,7 +25,6 @@ class Car:
         self.crashed = False
         self.reached_end = False
         self.waiting_duration = 0
-
         
         # Determine the car's direction based on speed
         self.direction = (1 if speed_x > 0 else -1 if speed_x < 0 else 0,
@@ -33,11 +33,13 @@ class Car:
         # Determine rotation angle
         if self.direction == (0, 1) or self.direction == (0, -1):
             self.rotation = 90 if self.direction[1] > 0 else -90
+            # Swap width and height for logical collision detection since it's rotated
+            self.width, self.height = self.height, self.width
         else:
             self.rotation = 0
 
     def draw(self, surface):
-        car_surface = pygame.Surface((self.width, self.height))
+        car_surface = pygame.Surface((self.original_width, self.original_height))
         car_surface.fill(self.color)
         
         # Rotate the car surface if needed
@@ -50,10 +52,6 @@ class Car:
         font = pygame.font.Font(None, 36)
         text_collisions = font.render(f'Collisions: {Car.collision_counter}', True, (255, 255, 255))
         surface.blit(text_collisions, (10, 10))
-
-        # Render max wait duration
-        # text_max_wait = font.render(f'Max Wait Duration: {Car.max_wait_duration}', True, (255, 255, 255))
-        # surface.blit(text_max_wait, (10, 50))
 
     def move(self):
         self.x += self.speed_x
@@ -86,10 +84,27 @@ class Car:
         return False
 
     def get_car_in_proximity(self, all_cars, distance):
+        closest_car = None
+        min_dist = float('inf')
+        
         for other_car in all_cars:
             if self != other_car and self.is_in_proximity(other_car, distance) and other_car.direction == self.direction:
-                return other_car
-        return None
+                # Calculate distance
+                dist = float('inf')
+                if self.speed_x > 0:
+                    dist = other_car.x - self.x
+                elif self.speed_x < 0:
+                    dist = self.x - other_car.x
+                elif self.speed_y > 0:
+                    dist = other_car.y - self.y
+                elif self.speed_y < 0:
+                    dist = self.y - other_car.y
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_car = other_car
+                    
+        return closest_car
 
     def stop_if_red_lights(self, traffic_lights):
         for traffic_light in traffic_lights:
@@ -101,10 +116,10 @@ class Car:
                     return  # Stop checking other lights if one is red and the car is affected
         self.speed_x = self.original_speed_x
         self.speed_y = self.original_speed_y
-        self.waiting_duration = 0
+        # self.waiting_duration = 0  <-- Removed to prevent resetting while moving
 
     
-    def update(self, all_cars, traffic_lights, speed_reduction_distance):
+    def update(self, all_cars, traffic_lights, speed_reduction_distance, log_dir):
 
         # Check for traffic lights
         self.stop_if_red_lights(traffic_lights)
@@ -129,16 +144,16 @@ class Car:
                 self.crashed = True
                 other_car.crashed = True
                 Car.collision_counter += 1
-                Car.save_collision(datetime.datetime.now(), self.x, self.y, other_car.x, other_car.y)
+                Car.save_collision(datetime.datetime.now(), self.x, self.y, other_car.x, other_car.y, os.path.join(log_dir, 'collisions.csv'))
                 print(f"Collision detected between cars at ({self.x}, {self.y}) and ({other_car.x}, {other_car.y})")
-        Car.save_max_wait_duration(datetime.datetime.now(), all_cars)
+        Car.save_max_wait_duration(datetime.datetime.now(), all_cars, os.path.join(log_dir, 'max_wait_durations.csv'))
 
         # Move the car
         self.move()
 
     @staticmethod
-    def save_collision(timestamp, car1_x, car1_y, car2_x, car2_y):
-        with open('q/collisions.csv', 'a', newline='') as csvfile:
+    def save_collision(timestamp, car1_x, car1_y, car2_x, car2_y, filepath):
+        with open(filepath, 'a', newline='') as csvfile:
             fieldnames = ['timestamp', 'car1_x', 'car1_y', 'car2_x', 'car2_y']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
@@ -154,7 +169,7 @@ class Car:
             })
 
     @staticmethod
-    def save_max_wait_duration(timestamp, all_cars):
+    def save_max_wait_duration(timestamp, all_cars, filepath):
         max_duration = 0
         for car in all_cars:
             if (max_duration < car.waiting_duration):
@@ -163,7 +178,7 @@ class Car:
         if (Car.max_wait_duration != max_duration):
             Car.max_wait_duration = max_duration
 
-            with open('q/max_wait_durations.csv', 'a', newline='') as csvfile:
+            with open(filepath, 'a', newline='') as csvfile:
                 fieldnames = ['timestamp', 'max_waiting_duration']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 
