@@ -1,12 +1,10 @@
 import numpy as np
 import random
-import numpy as np
-import random
-from collections import deque
+from .base_agent import BaseAgent
 
-class QLearningAgent:
+class QLearningAgent(BaseAgent):
     def __init__(self, actions, alpha=0.1, gamma=0.9, epsilon=0.1):
-        self.actions = actions
+        super().__init__(actions)
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
@@ -17,7 +15,7 @@ class QLearningAgent:
             self.q_table[state] = np.zeros(len(self.actions))
         return self.q_table[state][action]
 
-    def choose_action(self, state):
+    def act(self, state):
         if state not in self.q_table:
             self.q_table[state] = np.zeros(len(self.actions))
 
@@ -26,7 +24,7 @@ class QLearningAgent:
         else:
             return np.argmax(self.q_table[state])  # Exploitation
 
-    def update(self, state, action, reward, next_state):
+    def learn(self, state, action, reward, next_state, done):
         best_next_action = np.argmax(self.q_table.get(next_state, np.zeros(len(self.actions))))
         td_target = reward + self.gamma * self.get_q_value(next_state, best_next_action)
         td_error = td_target - self.get_q_value(state, action)

@@ -1,5 +1,5 @@
 import random
-from common.car import Car
+from display.car import Car
 
 class CarSpawner:
     def __init__(self, spawn_area, car_color, car_size, spawn_interval, direction):

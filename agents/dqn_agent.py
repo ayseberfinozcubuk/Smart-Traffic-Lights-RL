@@ -1,10 +1,10 @@
-# dqn_agent.py
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import random
 from collections import deque
+from .base_agent import BaseAgent
 
 class DQN(nn.Module):
     def __init__(self, state_size, action_size):
@@ -18,8 +18,9 @@ class DQN(nn.Module):
         x = torch.relu(self.fc2(x))
         return self.fc3(x)
 
-class DQNAgent:
+class DQNAgent(BaseAgent):
     def __init__(self, state_size, action_size, gamma=0.99, epsilon=1.0, epsilon_min=0.1, epsilon_decay=0.995, lr=0.001, batch_size=64, memory_size=10000):
+        super().__init__(range(action_size))
         self.state_size = state_size
         self.action_size = action_size
         self.gamma = gamma
@@ -34,6 +35,8 @@ class DQNAgent:
         self.target_model = DQN(state_size, action_size)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
+        
+        self.update_target_counter = 0
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
@@ -79,3 +82,15 @@ class DQNAgent:
 
     def update_target_model(self):
         self.target_model.load_state_dict(self.model.state_dict())
+
+    def learn(self, state, action, reward, next_state, done):
+        # Initial implementation maps learn to remember + replay
+        self.remember(state, action, reward, next_state, done)
+        self.replay()
+        
+        # Periodic target update (e.g., every 10 steps or calls)
+        # In original code, it was time-based (every 1000ms).
+        # Here we can make it step-based.
+        self.update_target_counter += 1
+        if self.update_target_counter % 10 == 0:
+            self.update_target_model()

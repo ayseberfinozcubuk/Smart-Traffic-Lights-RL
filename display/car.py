@@ -2,7 +2,7 @@ import pygame
 import datetime
 import csv
 import os
-from common.traffic_light import Light
+from display.traffic_light import Light
 
 class Car:
     MAX_SPEED = 25

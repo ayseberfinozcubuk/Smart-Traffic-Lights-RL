@@ -1,5 +1,5 @@
 import pygame
-from common.road import Road
+from display.road import Road
 from enum import Enum
 
 class Light(Enum):
