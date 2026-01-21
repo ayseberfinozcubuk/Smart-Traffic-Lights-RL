@@ -19,7 +19,7 @@ class DQN(nn.Module):
         return self.fc3(x)
 
 class DQNAgent(BaseAgent):
-    def __init__(self, state_size, action_size, gamma=0.99, epsilon=1.0, epsilon_min=0.1, epsilon_decay=0.995, lr=0.001, batch_size=64, memory_size=10000):
+    def __init__(self, state_size, action_size, gamma=0.99, epsilon=1.0, epsilon_min=0.1, epsilon_decay=0.99, lr=0.001, batch_size=64, memory_size=10000):
         super().__init__(range(action_size))
         self.state_size = state_size
         self.action_size = action_size
@@ -60,19 +60,19 @@ class DQNAgent(BaseAgent):
         rewards = torch.FloatTensor(rewards)
         dones = torch.FloatTensor(dones)
 
-        # Calculate the target Q values
+
         target_qs = self.model(states).clone()
         with torch.no_grad():
             next_qs = self.target_model(next_states).max(dim=1)[0]
             target_qs[range(self.batch_size), actions] = rewards + self.gamma * next_qs * (1 - dones)
 
-        # Forward pass
+
         qs = self.model(states)
 
-        # Loss calculation
+
         loss = self.criterion(qs, target_qs)
 
-        # Backward pass
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -84,13 +84,11 @@ class DQNAgent(BaseAgent):
         self.target_model.load_state_dict(self.model.state_dict())
 
     def learn(self, state, action, reward, next_state, done):
-        # Initial implementation maps learn to remember + replay
+
         self.remember(state, action, reward, next_state, done)
         self.replay()
         
-        # Periodic target update (e.g., every 10 steps or calls)
-        # In original code, it was time-based (every 1000ms).
-        # Here we can make it step-based.
+        # Periodic target update
         self.update_target_counter += 1
         if self.update_target_counter % 10 == 0:
             self.update_target_model()

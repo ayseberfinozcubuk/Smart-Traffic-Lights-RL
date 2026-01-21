@@ -6,18 +6,14 @@ from display.traffic_light import TrafficLight, Light
 from display.car import Car
 
 class TrafficSimulation:
-    def __init__(self, agent, env, actions, width=1200, height=800, fps=60):
+    def __init__(self, agent, env, actions, width=400, height=600):
         self.agent = agent
         self.env = env
         self.actions_map = actions
         self.width = width
         self.height = height
-        self.fps = fps
         
-        self.screen = None
-        self.clock = None
-        
-        # Simulation Assets
+
         self.roads = []
         self.traffic_lights = []
         self.all_cars = []
@@ -28,103 +24,120 @@ class TrafficSimulation:
         self.red = (255, 0, 0)
         self.green = (100, 200, 70)
 
-        self._init_pygame()
         self._init_assets()
         
-        # Reset Env
+
         self.state = self.env.reset(self.all_cars, self.traffic_lights, self.roads)
         self.hashable_state = self.env.get_hashable_state(self.state)
 
-    def _init_pygame(self):
-        pygame.init()
-        self.screen = pygame.display.set_mode((self.width, self.height))
-        self.clock = pygame.time.Clock()
+        # Simulation State
+        self.last_action_time = 0
+        self.action_interval = 200
+        self.action_index = 0
+        
+
+        self.collision_count = 0
+        # waiting_time_history stores cumulative average waiting time per frame
+        self.waiting_time_history = []
+        # collision_history stores cumulative collision count per frame
+        self.collision_history = []
+        
+        # Cumulative/Global stats tracking
+        self.completed_cars_wait_sum = 0
+        self.completed_cars_count = 0
 
     def _init_assets(self):
-        road_width = 50
+        road_width = 25
         spawn_interval = 100
         
         # Roads
+
         horizontal_road = Road(0, self.height // 2 - road_width, self.width, self.height // 2 + road_width, self.gray, main_road=True)
         horizontal_road_small = Road(self.width // 2 - 100, self.height // 2 - road_width, self.width // 2 - road_width, self.height // 2 + road_width, self.green, main_road=False)
 
-        horizontal_road_2 = Road(0, self.height // 3 - road_width, self.width, self.height // 3 + road_width, self.gray, main_road=True)
-        horizontal_road_small_2 = Road(self.width // 3 - 100, self.height // 3 - road_width, self.width // 2 - road_width, self.height // 2 + road_width, self.green, main_road=False)
+        # Removed the upper horizontal road (horizontal_road_2) as requested
+
 
         vertical_road = Road(self.width // 2 - road_width, 0, self.width // 2 + road_width, self.height, self.gray, main_road=True)
         vertical_road_small = Road(self.width // 2 - road_width, self.height // 2 - 100, self.width // 2 + road_width, self.height // 2 - road_width, self.green, main_road=False)
         
-        self.roads = [horizontal_road, vertical_road, horizontal_road_small, vertical_road_small, horizontal_road_2, horizontal_road_small_2]
+        self.roads = [horizontal_road, vertical_road, horizontal_road_small, vertical_road_small]
 
         # Spawners
-        car_spawner1 = CarSpawner((0, 0, self.height // 2), self.red, (50, 30), spawn_interval, (1, 0))
-        car_spawner2 = CarSpawner((self.width // 2, self.width // 2, 0), self.red, (50, 30), spawn_interval, (0, 1))
+        # Car Size: (40, 20). 20 fits into road_width=25.
+        car_spawner1 = CarSpawner((0, 0, self.height // 2), self.red, (40, 20), spawn_interval, (1, 0))
+        car_spawner2 = CarSpawner((self.width // 2, self.width // 2, 0), self.red, (40, 20), spawn_interval, (0, 1))
         self.car_spawners = [car_spawner1, car_spawner2]
 
-        # Traffic Lights
-        traffic_light_horizontal = TrafficLight(self.width // 2 - 50, self.height // 2, horizontal_road_small)
-        traffic_light_vertical = TrafficLight(self.width // 2, self.height // 2 - 50, vertical_road_small)
-        # Note: Previous dqn script had traffic_light_horizontal_2 but didn't put it in the list [traffic_lights] for some reason in one version?
-        # Let's check dqn script again. It has 2 lights in the list.
-        # "traffic_lights = [traffic_light_horizontal, traffic_light_vertical]"
-        # But it defines traffic_light_horizontal_2.
-        # Wait, the roads list has horizontal_road_2.
-        # If I look at the old code:
-        # traffic_light_horizontal_2 = TrafficLight(WIDTH// 2 - 50, HEIGHT // 3, horizontal_road_small_2)
-        # traffic_lights = [traffic_light_horizontal, traffic_light_vertical]
-        # It seems the second horizontal light was defined but NOT used in the logic?
-        # That sounds like a bug or incomplete feature in the original code. 
-        # But for now I should replicate existing behavior strictly or fix it if obvious.
-        # User said "inheritance and code traceability should be a lot better".
-        # I'll stick to what was running.
-        
+
+        traffic_light_horizontal = TrafficLight(self.width // 2 - road_width, self.height // 2, horizontal_road_small)
+        traffic_light_vertical = TrafficLight(self.width // 2, self.height // 2 - road_width, vertical_road_small)
         self.traffic_lights = [traffic_light_horizontal, traffic_light_vertical]
         self.all_cars = []
 
-    def draw(self):
-        self.screen.fill(self.light_gray)
+    def draw(self, surface):
+        surface.fill(self.light_gray)
         for road in filter(lambda road: road.main_road, self.roads):
-            road.draw(self.screen)
+            road.draw(surface)
         for traffic_light in self.traffic_lights:
-            traffic_light.draw(self.screen)
+            traffic_light.draw(surface)
         for car in self.all_cars:
-            car.draw(self.screen)
-        pygame.display.flip()
+            car.draw(surface)
 
-    def run(self):
-        last_action_time = pygame.time.get_ticks()
-        action_interval = 200
-        action_index = 0
+    def update(self, current_time):
+        # Filter Cars (Remove finished/crashed) and update cumulative stats
+        active_cars = []
+        for car in self.all_cars:
+            if car.x < self.width and car.y < self.height and not car.crashed and not car.reached_end:
+                active_cars.append(car)
+            else:
+                # Car removed (crashed or reached end or out of bounds)
+                # Count its waiting time towards history
+                self.completed_cars_wait_sum += car.waiting_duration
+                self.completed_cars_count += 1
         
-        while True:
-            current_time = pygame.time.get_ticks()
-            self.all_cars = list(filter(lambda car: car.x < self.width and car.y < self.height and car.crashed == False and car.reached_end == False, self.all_cars))
-            
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+        self.all_cars = active_cars
 
-            # Spawn Cars
-            for spawner in self.car_spawners:
-                spawner.spawn_car(current_time, self.all_cars)
 
-            # Agent Action
-            if current_time - last_action_time >= action_interval:
-                action_index = self.agent.act(self.hashable_state)
-                last_action_time = current_time
-            
-            # Map index to action tuple
-            action = self.actions_map[action_index]
+        for spawner in self.car_spawners:
+            spawner.spawn_car(current_time, self.all_cars)
 
-            # Environment Step
-            next_state, reward, done = self.env.step(action, self.all_cars, self.traffic_lights, self.roads)
-            hashable_next_state = self.env.get_hashable_state(next_state)
+        # Agent Action
+        if current_time - self.last_action_time >= self.action_interval:
+            self.action_index = self.agent.act(self.hashable_state)
+            self.last_action_time = current_time
+        
 
-            # Agent Learn
-            self.agent.learn(self.hashable_state, action_index, reward, hashable_next_state, done)
+        action = self.actions_map[self.action_index]
+
+        # Environment Step
+        next_state, reward, done = self.env.step(action, self.all_cars, self.traffic_lights, self.roads)
+        hashable_next_state = self.env.get_hashable_state(next_state)
+
+
+        self.agent.learn(self.hashable_state, self.action_index, reward, hashable_next_state, done)
+        
+        self.hashable_state = hashable_next_state
+
+        # Update Statistics
+        # Count new crashes (cars that are crashed but not yet removed)
+        new_crashes = len([car for car in self.all_cars if car.crashed])
+        self.collision_count += new_crashes 
+        # Note: Crashed cars will be removed at the beginning of the NEXT update call.
+
+        # Calculate Cumulative Average Waiting Time
+        current_active_wait_sum = sum(car.waiting_duration for car in self.all_cars)
+        total_wait_sum = self.completed_cars_wait_sum + current_active_wait_sum
+        total_cars_count = self.completed_cars_count + len(self.all_cars)
+        
+        if total_cars_count > 0:
+            avg_wait = total_wait_sum / total_cars_count
+        else:
+            avg_wait = 0
             
-            self.hashable_state = hashable_next_state
+        self.waiting_time_history.append(avg_wait)
             
-            self.draw()
-            self.clock.tick(self.fps)
+        # Collision History
+        self.collision_history.append(self.collision_count)
+    
+        # No history truncation (sliding window) as requested

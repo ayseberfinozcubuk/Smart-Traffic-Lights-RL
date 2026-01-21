@@ -15,7 +15,7 @@ class TrafficLight:
         self.last_light_change_time = pygame.time.get_ticks()
 
     def draw(self, surface):
-        # Define dimensions for the traffic light circle
+
         circle_radius = 10
         light_color_map = {
             Light.RED: (255, 0, 0),

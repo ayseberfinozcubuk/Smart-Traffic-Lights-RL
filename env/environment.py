@@ -10,8 +10,7 @@ class Environment:
     episode = 0
     episode_reward = 0
     
-    # Class-level episode counter might need to be instance level if we run multiple envs, 
-    # but for now keeping it as is to match original behavior, just aware it's shared.
+
 
     def __init__(self, log_dir='.', crash_penalty=1000, stopping_penalty=0.05, state_encoding='tuple', min_switch_time=5000):
         self.data = []
@@ -31,8 +30,14 @@ class Environment:
 
     def get_state(self, all_cars, traffic_lights, roads):
         cars_state = [(car.x, car.y, car.speed_x, car.speed_y, car.crashed) for car in all_cars]
-        lights_state = [(light.location_x, light.location_y, (light.current_light.value if hasattr(light.current_light, 'value') else light.current_light)) for light in traffic_lights]
         
+        current_time = pygame.time.get_ticks()
+        lights_state = []
+        for light in traffic_lights:
+            state_val = (light.current_light.value if hasattr(light.current_light, 'value') else light.current_light)
+            time_since_change = (current_time - light.last_light_change_time) / 1000.0 # In seconds
+            lights_state.append((light.location_x, light.location_y, state_val, time_since_change))
+            
         cars_in_stopping_areas = self.count_cars_in_stopping_areas(all_cars, roads)
         cars_at_end_areas = self.count_cars_at_end_areas(all_cars, roads)
 
@@ -47,7 +52,8 @@ class Environment:
         self.apply_action(action, traffic_lights)
 
         for car in all_cars:
-            car.update(all_cars, traffic_lights, self.speed_reduction_distance, self.log_dir)
+
+            car.update(all_cars, traffic_lights, self.speed_reduction_distance)
 
         new_state = self.get_state(all_cars, traffic_lights, roads)
         reward = self.calculate_reward(new_state)
@@ -60,7 +66,7 @@ class Environment:
     def apply_action(self, action, traffic_lights):
         current_time = pygame.time.get_ticks()
         for i, light in enumerate(traffic_lights):
-            # Only change if the new state is different AND minimum time has passed
+
             if light.current_light != action[i]:
                 if current_time - light.last_light_change_time >= self.min_switch_time:
                     light.change_light(action[i])
@@ -70,9 +76,22 @@ class Environment:
         reward = 0
         reward += sum(state['cars_at_end_areas']) * 10
         reward -= sum(state['cars_in_stopping_areas']) * self.stopping_penalty
+        
+        # Penalize crashes
         for car in state['cars']:
             if car[4]:  # If crashed
                 reward -= self.crash_penalty
+
+        
+        light_states = [light[2] for light in state['traffic_lights']]
+        
+        green_lights = light_states.count(2) 
+        
+
+        
+        # This penalty is applied EVERY TICK (approx 60 times/sec) while the state is unsafe.
+        if green_lights >= 2:
+            reward -= 500 
         
         Environment.episode += 1
         Environment.episode_reward += reward
@@ -147,18 +166,19 @@ class Environment:
         cars_in_stopping_areas = state['cars_in_stopping_areas']
         
         if self.state_encoding == 'dqn':
-            # DQN Flattened List
-            # lights_state = [item for light in state['traffic_lights'] for item in light]
-            # Note: The original DQN code flattened the tuple representation of light state
-            # state['traffic_lights'] contains tuples (x, y, state)
+
             lights_state = [item for light in state['traffic_lights'] for item in light]
             return lights_state + cars_in_stopping_areas
         else:
-            # Hashable Tuple (Q-learning, SARSA)
-            # Default to tuple of tuples
-            # state['traffic_lights'] contains tuples already, but we need to ensure deep immutability for dict keys
-            lights_state = tuple(tuple(light) for light in state['traffic_lights'])
+
+            lights_state = []
+            for light in state['traffic_lights']:
+                # light is (x, y, s, time)
+                x, y, s, t = light
+                t_discretized = min(int(t), 60)
+                lights_state.append((x, y, s, t_discretized))
+                
+            lights_state = tuple(lights_state)
             cars_in_stopping_areas = tuple(cars_in_stopping_areas)
             
-            # Note: Q/SARSA original code returned (cars_in_stopping_areas, lights_state)
             return (cars_in_stopping_areas, lights_state)
