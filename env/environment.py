@@ -91,7 +91,7 @@ class Environment:
         
         # This penalty is applied EVERY TICK (approx 60 times/sec) while the state is unsafe.
         if green_lights >= 2:
-            reward -= 500 
+            reward -= 5000 
         
         Environment.episode += 1
         Environment.episode_reward += reward

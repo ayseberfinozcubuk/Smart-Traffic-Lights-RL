@@ -51,14 +51,14 @@ class Dashboard:
         # --- Graph 1: Average Waiting Time ---
         g1_x = self.rect.x + 20
         self._draw_graph(surface, g1_x, graph_y, graph_width, graph_height, "Avg Waiting Time (s)", 
-                         lambda sim: sim.waiting_time_history)
+                         lambda sim: sim.waiting_time_history, method='avg')
 
         # --- Graph 2: Cumulative Crashes ---
         g2_x = g1_x + graph_width + 20
         self._draw_graph(surface, g2_x, graph_y, graph_width, graph_height, "Cumulative Crashes", 
-                         lambda sim: sim.collision_history)
+                         lambda sim: sim.collision_history, method='max')
 
-    def _draw_graph(self, surface, x, y, w, h, title, data_extractor):
+    def _draw_graph(self, surface, x, y, w, h, title, data_extractor, method='avg'):
         # Background
         pygame.draw.rect(surface, (0, 0, 0), (x, y, w, h))
         pygame.draw.line(surface, self.axis_color, (x, y + h), (x + w, y + h), 2) # X Axis
@@ -79,10 +79,16 @@ class Dashboard:
         
         # Draw Lines
         for i, sim in enumerate(self.sims):
-            history = data_extractor(sim)
-            if len(history) < 2:
+            raw_history = data_extractor(sim)
+            if len(raw_history) < 2:
                 continue
-            
+                
+            # Adaptive Downsampling
+            # We want roughly 1 point per pixel of width to maintain detail but avoid overcrowding
+            # However, 'w' might be large, so let's cap it reasonably, e.g., w/2 or w
+            target_points = int(w) 
+            history = self._downsample_data(raw_history, target_points, method=method)
+
             points = []
             num_points = len(history)
             
@@ -90,8 +96,36 @@ class Dashboard:
             
             for j, val in enumerate(history):
                 px = x + j * step_x
-                py = y + h - (val / max_val * h)
+                py = y + h - (val / (max_val if max_val > 0 else 1) * h)
                 points.append((px, py))
             
             if len(points) > 1:
                 pygame.draw.lines(surface, self.graph_colors[i], False, points, 2)
+
+    def _downsample_data(self, data, max_points, method='avg'):
+        if not data:
+            return []
+        if len(data) <= max_points:
+            return data
+        
+        chunk_size = len(data) / max_points
+        downsampled = []
+        
+        for i in range(max_points):
+            start_index = int(i * chunk_size)
+            end_index = int((i + 1) * chunk_size)
+            chunk = data[start_index : end_index]
+            
+            if not chunk: # Should not happen mathematically but safe check
+                continue
+                
+            if method == 'avg':
+                val = sum(chunk) / len(chunk)
+            elif method == 'max':
+                val = max(chunk) # Useful for cumulative or peak detection
+            else:
+                val = chunk[-1] # Valid for cumulative counters
+            
+            downsampled.append(val)
+            
+        return downsampled
