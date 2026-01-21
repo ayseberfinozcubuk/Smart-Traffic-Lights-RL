@@ -87,15 +87,9 @@ pip install pygame numpy torch
 
 ## How to Run
 
-Execute the `main.py` script from the root directory and specify the model:
+Execute the `main.py` script from the root directory. This will launch a dashboard running **DQN**, **Q-Learning**, and **SARSA** simulations simultaneously for comparison.
 
 ```bash
-# Run with DQN
-python3 main.py --model dqn
-
-# Run with Q-Learning
-python3 main.py --model q
-
-# Run with SARSA
-python3 main.py --model sarsa
+python main.py
+# or python3 main.py (depending on your system)
 ```
